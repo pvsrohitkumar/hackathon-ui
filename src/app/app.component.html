@@ -1,0 +1,41 @@
+<main class="shell">
+  <header class="topbar">
+    <div class="brand-mark" aria-hidden="true">SL</div>
+    <div><p class="eyebrow">Angular 17 / training environment</p><h1>Security Lab</h1></div>
+    <div class="status"><span></span> Local-only sandbox</div>
+  </header>
+
+  <section class="intro">
+    <div><p class="eyebrow accent">Vulnerability remediation workshop</p><h2>Find the weak seams.<br /><em>Fix the system.</em></h2><p class="lede">A deliberately flawed client application for practicing threat modeling, secure Angular patterns, and server-side authorization.</p></div>
+    <div class="score-panel"><span class="score-label">Open findings</span><strong>{{ findings.length }}</strong><span class="score-foot">8 exercises · 0 backend calls</span></div>
+  </section>
+
+  <div class="workspace">
+    <aside class="finding-list" aria-label="Security findings">
+      <div class="list-heading"><span>Finding register</span><span class="tiny-label">SEV</span></div>
+      @for (finding of findings; track finding.id) {
+        <button class="finding-row" [class.active]="selectedFinding.id === finding.id" (click)="selectFinding(finding)"><span class="finding-index">{{ $index + 1 | number: '2.0' }}</span><span class="finding-copy"><strong>{{ finding.title }}</strong><small>{{ finding.category }}</small></span><span class="severity" [class]="finding.severity.toLowerCase()">{{ finding.severity.charAt(0) }}</span></button>
+      }
+    </aside>
+
+    <section class="detail-panel">
+      <div class="detail-head"><div><p class="eyebrow accent">Selected exercise / {{ selectedFinding.category }}</p><h3>{{ selectedFinding.title }}</h3></div><span class="severity-pill" [class]="selectedFinding.severity.toLowerCase()">{{ selectedFinding.severity }} risk</span></div>
+      <div class="finding-meta"><span>LOCATION</span><code>{{ selectedFinding.location }}</code></div>
+      <p class="lesson">{{ selectedFinding.lesson }}</p>
+      <div class="fix-note"><span class="fix-icon">+</span><span><b>Remediation target</b>{{ selectedFinding.fix }}</span></div>
+
+      @switch (selectedFinding.id) {
+        @case ('xss') { <div class="exercise"><div class="exercise-title"><span>01</span><b>Unsafe HTML renderer</b></div><label for="previewInput">User-controlled content</label><textarea id="previewInput" [(ngModel)]="previewInput" rows="3"></textarea><button class="action-button" (click)="previewHtml()">Render preview <span>→</span></button>@if (previewOutput) { <div class="output"><span>OUTPUT</span><div [innerHTML]="previewOutput"></div></div> }</div> }
+        @case ('idor') { <div class="exercise"><div class="exercise-title"><span>02</span><b>Object-level authorization</b></div><label for="profileId">Profile id</label><div class="inline-form"><input id="profileId" type="number" [(ngModel)]="profileId" min="1" /><button class="action-button" (click)="loadProfile()">Load record <span>→</span></button></div><div class="output"><span>RESPONSE</span><strong>{{ loadedProfile }}</strong></div></div> }
+        @case ('redirect') { <div class="exercise"><div class="exercise-title"><span>03</span><b>Return URL validation</b></div><label for="returnUrl">redirect_uri query parameter</label><input id="returnUrl" [(ngModel)]="returnUrl" /><button class="action-button" (click)="followReturnUrl()">Continue <span>→</span></button>@if (redirectMessage) { <div class="output"><span>SIMULATED NAVIGATION</span><strong>{{ redirectMessage }}</strong></div> }</div> }
+        @case ('storage') { <div class="exercise"><div class="exercise-title"><span>04</span><b>Token storage</b></div><p class="exercise-copy">The demo sign-in flow treats the browser as a trusted vault.</p><button class="action-button" (click)="signIn()">Sign in as demo user <span>→</span></button>@if (signInMessage) { <div class="output"><span>CLIENT STATE</span><strong>{{ signInMessage }}</strong></div> }</div> }
+        @case ('mass-assignment') { <div class="exercise"><div class="exercise-title"><span>05</span><b>Mass assignment</b></div><p class="exercise-copy">The profile payload includes an authorization field the user should never control.</p><div class="payload"><span>{{ '{' }}</span><code>"displayName": "Avery",</code><code>"role": "{{ attemptedRole }}"</code><span>{{ '}' }}</span></div><button class="action-button" (click)="saveProfile()">Submit profile payload <span>→</span></button></div> }
+        @case ('guard') { <div class="exercise"><div class="exercise-title"><span>06</span><b>UI-only privilege gate</b></div><label class="toggle"><input type="checkbox" [(ngModel)]="isAdminUser" /><span>Mark current user as admin</span></label><p class="exercise-copy">Admin controls: <b [class.muted]="!isAdmin()">{{ isAdmin() ? 'visible' : 'hidden' }}</b></p><div class="warning">A hidden control is not an authorization check.</div></div> }
+        @case ('validation') { <div class="exercise"><div class="exercise-title"><span>07</span><b>Password policy</b></div><label for="password">Candidate password</label><input id="password" type="text" [(ngModel)]="password" /><div class="validation-state" [class.pass]="passwordIsValid()"><span>{{ passwordIsValid() ? '✓' : '!' }}</span>{{ passwordIsValid() ? 'Client accepts this password' : 'Client rejects this password' }}</div></div> }
+        @default { <div class="exercise"><div class="exercise-title"><span>08</span><b>Error disclosure</b></div><p class="exercise-copy">Trigger the demo failure to see what gets exposed to the browser.</p><button class="action-button" (click)="showError()">Trigger error <span>→</span></button>@if (errorMessage) { <div class="output error"><span>RAW ERROR RESPONSE</span><strong>{{ errorMessage }}</strong></div> }</div> }
+      }
+    </section>
+  </div>
+
+  <footer><span>SECURITY LAB / BUILD 0.1</span><span>Use only in a disposable local environment.</span></footer>
+</main>
