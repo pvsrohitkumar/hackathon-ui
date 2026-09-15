@@ -15,40 +15,64 @@ OUTPUT_PATH = ROOT / "sonatype-vulnerability-report.pdf"
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MODERATE": 2, "LOW": 3, "INFO": 4, "UNKNOWN": 5}
 
 
-def run_npm_audit() -> dict:
+def _run_npm_command(args: list[str]) -> dict:
+    """Run an npm command and return parsed JSON output."""
     result = subprocess.run(
-        ["npm", "audit", "--json"],
+        args,
         cwd=str(ROOT),
         capture_output=True,
         text=True,
         check=False,
+        shell=True,
     )
     raw = (result.stdout or result.stderr).strip()
     if not raw:
-        raise RuntimeError("npm audit did not return any output.")
-
+        raise RuntimeError(f"{' '.join(args)} did not return any output.")
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"npm audit returned invalid JSON: {exc}") from exc
+        raise RuntimeError(f"{' '.join(args)} returned invalid JSON: {exc}") from exc
 
 
-def summarize_rows(data: dict):
+def run_npm_audit() -> dict:
+    return _run_npm_command(["npm", "audit", "--json"])
+
+
+def get_installed_versions() -> dict[str, str]:
+    """Return a mapping of package name -> installed version using npm ls."""
+    data = _run_npm_command(["npm", "ls", "--all", "--json"])
+
+    versions: dict[str, str] = {}
+
+    def _walk(deps: dict):
+        for name, info in deps.items():
+            if isinstance(info, dict):
+                ver = info.get("version")
+                if ver and name not in versions:
+                    versions[name] = ver
+                _walk(info.get("dependencies", {}))
+
+    _walk(data.get("dependencies", {}))
+    return versions
+
+
+def summarize_rows(data: dict, installed_versions: dict[str, str]):
     vulnerabilities = data.get("vulnerabilities", {})
     rows = []
     for package_name, details in vulnerabilities.items():
         severity = str(details.get("severity", "unknown")).upper()
+        version = installed_versions.get(package_name, "unknown")
         fix = "n/a"
         fix_data = details.get("fixAvailable")
         if isinstance(fix_data, dict):
             if fix_data.get("name"):
-                version = fix_data.get("version") or "latest"
-                fix = f"{fix_data['name']}@{version}"
+                fix_version = fix_data.get("version") or "latest"
+                fix = f"{fix_data['name']}@{fix_version}"
             elif fix_data.get("version"):
                 fix = str(fix_data["version"])
         elif isinstance(fix_data, str):
             fix = fix_data
-        rows.append([severity, package_name, fix])
+        rows.append([severity, f"{package_name}@{version}", fix])
 
     rows.sort(key=lambda item: (SEVERITY_ORDER.get(item[0], 99), item[1]))
     return rows
@@ -84,10 +108,10 @@ def build_pdf(rows):
 
     story.append(Spacer(1, 14))
 
-    table_data = [["Severity", "Package", "Fix Version"]]
+    table_data = [["Severity", "Package — Version", "Fix Version"]]
     table_data.extend(rows)
 
-    table = Table(table_data, colWidths=[90, 220, 200])
+    table = Table(table_data, colWidths=[80, 240, 200])
     table.setStyle(
         TableStyle(
             [
@@ -109,7 +133,8 @@ def build_pdf(rows):
 if __name__ == "__main__":
     try:
         audit_data = run_npm_audit()
-        rows = summarize_rows(audit_data)
+        installed_versions = get_installed_versions()
+        rows = summarize_rows(audit_data, installed_versions)
         build_pdf(rows)
         print(f"Sonatype-style vulnerability report created at: {OUTPUT_PATH}")
         print(f"Total findings: {len(rows)}")
